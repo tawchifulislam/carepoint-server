@@ -6,3 +6,138 @@ generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
 }
+
+enum Role {
+  PATIENT
+  DOCTOR
+  CLINIC_ADMIN
+  SUPER_ADMIN
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AppointmentStatus {
+  BOOKED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id            String   @id @default(cuid())
+  role          Role     @default(PATIENT)
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  doctor         Doctor?
+  adminOfClinic  Clinic?       @relation("ClinicAdmin")
+  appointments   Appointment[]
+
+  @@map("users")
+}
+
+model Clinic {
+  id             String         @id @default(cuid())
+  name           String
+  address        String
+  adminUserId    String         @unique
+  adminUser      User           @relation("ClinicAdmin", fields: [adminUserId], references: [id])
+  approvalStatus ApprovalStatus @default(PENDING)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  doctors        Doctor[]
+
+  @@map("clinics")
+}
+
+model Doctor {
+  id                     String                   @id @default(cuid())
+  userId                 String                   @unique
+  user                   User                     @relation(fields: [userId], references: [id])
+  clinicId               String
+  clinic                 Clinic                   @relation(fields: [clinicId], references: [id])
+  specialty              String
+  consultationFee        Decimal                  @db.Decimal(10, 2)
+  bio                    String?
+  approvalStatus         ApprovalStatus           @default(PENDING)
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+
+  availability           Availability[]
+  availabilityExceptions AvailabilityException[]
+  appointments           Appointment[]
+
+  @@index([clinicId])
+  @@map("doctors")
+}
+
+model Availability {
+  id              String @id @default(cuid())
+  doctorId        String
+  doctor          Doctor @relation(fields: [doctorId], references: [id])
+  weekday         Int
+  startTime       String
+  endTime         String
+  slotDurationMin Int
+  bufferMin       Int    @default(0)
+
+  @@index([doctorId])
+  @@map("availabilities")
+}
+
+model AvailabilityException {
+  id        String   @id @default(cuid())
+  doctorId  String
+  doctor    Doctor   @relation(fields: [doctorId], references: [id])
+  date      DateTime
+  isBlocked Boolean  @default(true)
+
+  @@index([doctorId])
+  @@map("availability_exceptions")
+}
+
+model Appointment {
+  id        String            @id @default(cuid())
+  doctorId  String
+  doctor    Doctor            @relation(fields: [doctorId], references: [id])
+  patientId String
+  patient   User              @relation(fields: [patientId], references: [id])
+  slotStart DateTime
+  slotEnd   DateTime
+  status    AppointmentStatus @default(BOOKED)
+  payment   Payment?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@unique([doctorId, slotStart])
+  @@index([patientId])
+  @@map("appointments")
+}
+
+model Payment {
+  id                    String        @id @default(cuid())
+  appointmentId         String        @unique
+  appointment           Appointment   @relation(fields: [appointmentId], references: [id])
+  stripePaymentIntentId String        @unique
+  amount                Decimal       @db.Decimal(10, 2)
+  status                PaymentStatus @default(PENDING)
+  createdAt             DateTime      @default(now())
+
+  @@map("payments")
+}
