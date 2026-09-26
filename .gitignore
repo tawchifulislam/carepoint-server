@@ -1,0 +1,17 @@
+node_modules/
+dist/
+generated/
+
+.env
+.env.*
+!.env.example
+
+.agents/
+.claude/
+.cursor/
+.devin/
+.vscode/
+.idea/
+
+*.log
+.DS_Store
