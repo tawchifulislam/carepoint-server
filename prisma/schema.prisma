@@ -3,8 +3,7 @@ datasource db {
 }
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 enum Role {
@@ -44,9 +43,12 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  doctor         Doctor?
-  adminOfClinic  Clinic?       @relation("ClinicAdmin")
-  appointments   Appointment[]
+  doctor        Doctor?
+  adminOfClinic Clinic?       @relation("ClinicAdmin")
+  appointments  Appointment[]
+
+  sessions Session[]
+  accounts Account[]
 
   @@map("users")
 }
@@ -61,23 +63,23 @@ model Clinic {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  doctors        Doctor[]
+  doctors Doctor[]
 
   @@map("clinics")
 }
 
 model Doctor {
-  id                     String                   @id @default(cuid())
-  userId                 String                   @unique
-  user                   User                     @relation(fields: [userId], references: [id])
-  clinicId               String
-  clinic                 Clinic                   @relation(fields: [clinicId], references: [id])
-  specialty              String
-  consultationFee        Decimal                  @db.Decimal(10, 2)
-  bio                    String?
-  approvalStatus         ApprovalStatus           @default(PENDING)
-  createdAt              DateTime                 @default(now())
-  updatedAt              DateTime                 @updatedAt
+  id              String         @id @default(cuid())
+  userId          String         @unique
+  user            User           @relation(fields: [userId], references: [id])
+  clinicId        String
+  clinic          Clinic         @relation(fields: [clinicId], references: [id])
+  specialty       String
+  consultationFee Decimal        @db.Decimal(10, 2)
+  bio             String?
+  approvalStatus  ApprovalStatus @default(PENDING)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   availability           Availability[]
   availabilityExceptions AvailabilityException[]
@@ -140,4 +142,64 @@ model Payment {
   createdAt             DateTime      @default(now())
 
   @@map("payments")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model Jwks {
+  id         String    @id
+  publicKey  String
+  privateKey String
+  createdAt  DateTime
+  expiresAt  DateTime?
+  alg        String?
+  crv        String?
+
+  @@map("jwks")
 }

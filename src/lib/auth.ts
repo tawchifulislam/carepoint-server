@@ -1,8 +1,7 @@
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
-import { jwt } from 'better-auth/plugins';
+import { jwt, bearer } from 'better-auth/plugins';
 import { prisma } from './prisma.js';
-
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
@@ -20,5 +19,5 @@ export const auth = betterAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
     },
   },
-  plugins: [jwt()],
+  plugins: [jwt(), bearer()],
 });
