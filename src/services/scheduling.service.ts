@@ -1,5 +1,7 @@
 import { addMinutes, isBefore } from 'date-fns';
 import { fromZonedTime } from 'date-fns-tz';
+import { Prisma } from '@prisma/client';
+import type { Appointment } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 
 const CLINIC_TIMEZONE = 'Asia/Dhaka';
@@ -13,6 +15,8 @@ interface DaySlots {
   date: string;
   slots: Slot[];
 }
+
+export class SlotUnavailableError extends Error {}
 
 function parseDateKey(dateKey: string): {
   year: number;
@@ -115,4 +119,39 @@ export async function getAvailableSlots(
   }
 
   return days;
+}
+
+export async function bookAppointment(
+  doctorId: string,
+  patientId: string,
+  slotStart: string,
+): Promise<Appointment> {
+  const dateKey = slotStart.slice(0, 10);
+  const days = await getAvailableSlots(doctorId, dateKey, dateKey);
+  const matchedSlot = days[0]?.slots.find(slot => slot.start === slotStart);
+
+  if (!matchedSlot) {
+    throw new SlotUnavailableError('This slot is no longer available');
+  }
+
+  try {
+    return await prisma.appointment.create({
+      data: {
+        doctorId,
+        patientId,
+        slotStart: new Date(matchedSlot.start),
+        slotEnd: new Date(matchedSlot.end),
+      },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      throw new SlotUnavailableError(
+        'This slot was just booked by someone else',
+      );
+    }
+    throw error;
+  }
 }

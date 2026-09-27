@@ -6,6 +6,7 @@ import { clinicRoutes } from './routes/clinic.routes.js';
 import { doctorRoutes } from './routes/doctor.routes.js';
 import { adminRoutes } from './routes/admin.routes.js';
 import cors from 'cors';
+import { appointmentRoutes } from './routes/appointment.routes.js';
 
 const app = express();
 
@@ -27,6 +28,7 @@ app.get('/health', (_req, res) => {
 app.use('/api/clinics', clinicRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/appointments', appointmentRoutes);
 
 const PORT = process.env.PORT ?? 4000;
 
