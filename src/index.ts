@@ -5,8 +5,16 @@ import { auth } from './lib/auth.js';
 import { clinicRoutes } from './routes/clinic.routes.js';
 import { doctorRoutes } from './routes/doctor.routes.js';
 import { adminRoutes } from './routes/admin.routes.js';
+import cors from 'cors';
 
 const app = express();
+
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL ?? 'http://localhost:3000',
+    credentials: true,
+  }),
+);
 
 app.all('/api/auth/*splat', toNodeHandler(auth));
 
