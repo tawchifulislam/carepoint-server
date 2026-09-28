@@ -69,23 +69,24 @@ model Clinic {
 }
 
 model Doctor {
-  id                     String                   @id @default(cuid())
-  userId                 String                   @unique
-  user                   User                     @relation(fields: [userId], references: [id])
+  id                     String                  @id @default(cuid())
+  userId                 String                  @unique
+  user                   User                    @relation(fields: [userId], references: [id])
   clinicId               String
-  clinic                 Clinic                   @relation(fields: [clinicId], references: [id])
+  clinic                 Clinic                  @relation(fields: [clinicId], references: [id])
   specialty              String
-  consultationFee        Decimal                  @db.Decimal(10, 2)
+  consultationFee        Decimal                 @db.Decimal(10, 2)
   bio                    String?
-  approvalStatus         ApprovalStatus           @default(PENDING)
-  createdAt              DateTime                 @default(now())
-  updatedAt              DateTime                 @updatedAt
+  approvalStatus         ApprovalStatus          @default(PENDING)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
 
   availability           Availability[]
   availabilityExceptions AvailabilityException[]
   appointments           Appointment[]
 
   @@index([clinicId])
+  @@index([approvalStatus, specialty])
   @@map("doctors")
 }
 
@@ -107,10 +108,10 @@ model AvailabilityException {
   id        String   @id @default(cuid())
   doctorId  String
   doctor    Doctor   @relation(fields: [doctorId], references: [id])
-  date      DateTime
+  date      DateTime @db.Date
   isBlocked Boolean  @default(true)
 
-  @@index([doctorId])
+  @@unique([doctorId, date])
   @@map("availability_exceptions")
 }
 
