@@ -8,6 +8,7 @@ import { doctorRoutes } from './routes/doctor.routes.js';
 import { adminRoutes } from './routes/admin.routes.js';
 import { appointmentRoutes } from './routes/appointment.routes.js';
 import { paymentRoutes } from './routes/payment.routes.js';
+import { errorHandler, notFoundHandler } from './middlewares/error-handler.js';
 import { startReminderScheduler } from './services/reminder.service.js';
 
 const app = express();
@@ -32,6 +33,9 @@ app.use('/api/clinics', clinicRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/appointments', appointmentRoutes);
+
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 const PORT = process.env.PORT ?? 4000;
 
