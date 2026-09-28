@@ -20,6 +20,7 @@ enum ApprovalStatus {
 }
 
 enum AppointmentStatus {
+  PENDING_PAYMENT
   BOOKED
   COMPLETED
   CANCELLED
@@ -46,9 +47,8 @@ model User {
   doctor        Doctor?
   adminOfClinic Clinic?       @relation("ClinicAdmin")
   appointments  Appointment[]
-
-  sessions Session[]
-  accounts Account[]
+  sessions      Session[]
+  accounts      Account[]
 
   @@map("users")
 }
@@ -63,23 +63,23 @@ model Clinic {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  doctors Doctor[]
+  doctors        Doctor[]
 
   @@map("clinics")
 }
 
 model Doctor {
-  id              String         @id @default(cuid())
-  userId          String         @unique
-  user            User           @relation(fields: [userId], references: [id])
-  clinicId        String
-  clinic          Clinic         @relation(fields: [clinicId], references: [id])
-  specialty       String
-  consultationFee Decimal        @db.Decimal(10, 2)
-  bio             String?
-  approvalStatus  ApprovalStatus @default(PENDING)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id                     String                   @id @default(cuid())
+  userId                 String                   @unique
+  user                   User                     @relation(fields: [userId], references: [id])
+  clinicId               String
+  clinic                 Clinic                   @relation(fields: [clinicId], references: [id])
+  specialty              String
+  consultationFee        Decimal                  @db.Decimal(10, 2)
+  bio                    String?
+  approvalStatus         ApprovalStatus           @default(PENDING)
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
 
   availability           Availability[]
   availabilityExceptions AvailabilityException[]
@@ -122,7 +122,7 @@ model Appointment {
   patient   User              @relation(fields: [patientId], references: [id])
   slotStart DateTime
   slotEnd   DateTime
-  status    AppointmentStatus @default(BOOKED)
+  status    AppointmentStatus @default(PENDING_PAYMENT)
   payment   Payment?
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt

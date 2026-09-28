@@ -3,9 +3,13 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { createAppointmentSchema } from '../lib/validators/appointment.schema.js';
 import {
-  bookAppointment,
+  reserveAppointment,
   SlotUnavailableError,
 } from '../services/scheduling.service.js';
+import {
+  createPaymentSession,
+  refundAppointmentPayment,
+} from '../services/payment.service.js';
 import type { AuthenticatedRequest } from '../middlewares/authenticate.js';
 
 const paramsSchema = z.object({ id: z.string().cuid() });
@@ -23,12 +27,18 @@ export async function createAppointment(
   }
 
   try {
-    const appointment = await bookAppointment(
+    const appointment = await reserveAppointment(
       parsed.data.doctorId,
       req.user!.id,
       parsed.data.slotStart,
     );
-    res.status(201).json(appointment);
+
+    const doctor = await prisma.doctor.findUniqueOrThrow({
+      where: { id: parsed.data.doctorId },
+    });
+    const checkoutUrl = await createPaymentSession(appointment, doctor);
+
+    res.status(201).json({ appointment, checkoutUrl });
   } catch (error) {
     if (error instanceof SlotUnavailableError) {
       res.status(409).json({ error: error.message });
@@ -64,6 +74,7 @@ export async function cancelAppointment(
 
   const appointment = await prisma.appointment.findUnique({
     where: { id: params.data.id },
+    include: { payment: true },
   });
 
   if (!appointment) {
@@ -83,6 +94,13 @@ export async function cancelAppointment(
       .status(400)
       .json({ error: 'Cannot cancel within 2 hours of the appointment' });
     return;
+  }
+
+  if (appointment.payment?.status === 'SUCCEEDED') {
+    await refundAppointmentPayment(
+      appointment.id,
+      appointment.payment.stripePaymentIntentId,
+    );
   }
 
   const updated = await prisma.appointment.update({

@@ -69,7 +69,7 @@ export async function getAvailableSlots(
       where: {
         doctorId,
         slotStart: { gte: rangeStart, lte: rangeEnd },
-        status: { in: ['BOOKED', 'COMPLETED'] },
+        status: { in: ['PENDING_PAYMENT', 'BOOKED', 'COMPLETED'] },
       },
       select: { slotStart: true },
     }),
@@ -121,7 +121,7 @@ export async function getAvailableSlots(
   return days;
 }
 
-export async function bookAppointment(
+export async function reserveAppointment(
   doctorId: string,
   patientId: string,
   slotStart: string,
@@ -141,6 +141,7 @@ export async function bookAppointment(
         patientId,
         slotStart: new Date(matchedSlot.start),
         slotEnd: new Date(matchedSlot.end),
+        status: 'PENDING_PAYMENT',
       },
     });
   } catch (error) {

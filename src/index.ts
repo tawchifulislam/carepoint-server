@@ -1,12 +1,13 @@
 import 'dotenv/config';
 import express from 'express';
+import cors from 'cors';
 import { toNodeHandler } from 'better-auth/node';
 import { auth } from './lib/auth.js';
 import { clinicRoutes } from './routes/clinic.routes.js';
 import { doctorRoutes } from './routes/doctor.routes.js';
 import { adminRoutes } from './routes/admin.routes.js';
-import cors from 'cors';
 import { appointmentRoutes } from './routes/appointment.routes.js';
+import { paymentRoutes } from './routes/payment.routes.js';
 
 const app = express();
 
@@ -18,6 +19,7 @@ app.use(
 );
 
 app.all('/api/auth/*splat', toNodeHandler(auth));
+app.use('/api/payments', paymentRoutes);
 
 app.use(express.json());
 
