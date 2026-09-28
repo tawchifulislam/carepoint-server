@@ -115,17 +115,18 @@ model AvailabilityException {
 }
 
 model Appointment {
-  id        String            @id @default(cuid())
-  doctorId  String
-  doctor    Doctor            @relation(fields: [doctorId], references: [id])
-  patientId String
-  patient   User              @relation(fields: [patientId], references: [id])
-  slotStart DateTime
-  slotEnd   DateTime
-  status    AppointmentStatus @default(PENDING_PAYMENT)
-  payment   Payment?
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
+  id             String            @id @default(cuid())
+  doctorId       String
+  doctor         Doctor            @relation(fields: [doctorId], references: [id])
+  patientId      String
+  patient        User              @relation(fields: [patientId], references: [id])
+  slotStart      DateTime
+  slotEnd        DateTime
+  status         AppointmentStatus @default(PENDING_PAYMENT)
+  reminderSentAt DateTime?
+  payment        Payment?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   @@unique([doctorId, slotStart])
   @@index([patientId])

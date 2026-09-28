@@ -8,6 +8,7 @@ import { doctorRoutes } from './routes/doctor.routes.js';
 import { adminRoutes } from './routes/admin.routes.js';
 import { appointmentRoutes } from './routes/appointment.routes.js';
 import { paymentRoutes } from './routes/payment.routes.js';
+import { startReminderScheduler } from './services/reminder.service.js';
 
 const app = express();
 
@@ -36,4 +37,5 @@ const PORT = process.env.PORT ?? 4000;
 
 app.listen(PORT, () => {
   console.log(`CarePoint server running on port ${PORT}`);
+  startReminderScheduler();
 });
