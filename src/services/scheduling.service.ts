@@ -1,5 +1,5 @@
 import { addMinutes, isBefore } from 'date-fns';
-import { fromZonedTime } from 'date-fns-tz';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { Prisma } from '@prisma/client';
 import type { Appointment } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
@@ -41,11 +41,22 @@ function getWeekday(dateKey: string): number {
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
 }
 
-function nextDateKey(dateKey: string): string {
+export function nextDateKey(dateKey: string): string {
   const { year, month, day } = parseDateKey(dateKey);
   return new Date(Date.UTC(year, month - 1, day + 1))
     .toISOString()
     .slice(0, 10);
+}
+
+export function toDhakaDateKey(date: Date): string {
+  return formatInTimeZone(date, CLINIC_TIMEZONE, 'yyyy-MM-dd');
+}
+
+export function getDayRange(dateKey: string): { start: Date; end: Date } {
+  return {
+    start: toUtcInstant(dateKey, '00:00'),
+    end: toUtcInstant(nextDateKey(dateKey), '00:00'),
+  };
 }
 
 export async function getAvailableSlots(
@@ -53,22 +64,22 @@ export async function getAvailableSlots(
   fromDateKey: string,
   toDateKey: string,
 ): Promise<DaySlots[]> {
-  const rangeStart = toUtcInstant(fromDateKey, '00:00');
-  const rangeEnd = toUtcInstant(toDateKey, '23:59');
+  const rangeStart = getDayRange(fromDateKey).start;
+  const rangeEnd = getDayRange(toDateKey).end;
 
   const [availability, exceptions, appointments] = await Promise.all([
     prisma.availability.findMany({ where: { doctorId } }),
     prisma.availabilityException.findMany({
       where: {
         doctorId,
-        date: { gte: rangeStart, lte: rangeEnd },
         isBlocked: true,
+        date: { gte: new Date(fromDateKey), lte: new Date(toDateKey) },
       },
     }),
     prisma.appointment.findMany({
       where: {
         doctorId,
-        slotStart: { gte: rangeStart, lte: rangeEnd },
+        slotStart: { gte: rangeStart, lt: rangeEnd },
         status: { in: ['PENDING_PAYMENT', 'BOOKED', 'COMPLETED'] },
       },
       select: { slotStart: true },
@@ -126,9 +137,27 @@ export async function reserveAppointment(
   patientId: string,
   slotStart: string,
 ): Promise<Appointment> {
-  const dateKey = slotStart.slice(0, 10);
+  const slotInstant = new Date(slotStart);
+  const normalizedStart = slotInstant.toISOString();
+
+  const doctor = await prisma.doctor.findFirst({
+    where: {
+      id: doctorId,
+      approvalStatus: 'APPROVED',
+      clinic: { approvalStatus: 'APPROVED' },
+    },
+    select: { id: true },
+  });
+
+  if (!doctor) {
+    throw new SlotUnavailableError('This doctor is not available for booking');
+  }
+
+  const dateKey = toDhakaDateKey(slotInstant);
   const days = await getAvailableSlots(doctorId, dateKey, dateKey);
-  const matchedSlot = days[0]?.slots.find(slot => slot.start === slotStart);
+  const matchedSlot = days[0]?.slots.find(
+    slot => slot.start === normalizedStart,
+  );
 
   if (!matchedSlot) {
     throw new SlotUnavailableError('This slot is no longer available');
