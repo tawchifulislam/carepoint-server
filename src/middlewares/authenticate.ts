@@ -2,9 +2,13 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 import type { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma.js';
 
-const JWKS = createRemoteJWKSet(
-  new URL('/api/auth/jwks', process.env.BETTER_AUTH_URL),
-);
+const authUrl = process.env.BETTER_AUTH_URL;
+
+if (!authUrl) {
+  throw new Error('BETTER_AUTH_URL is not set');
+}
+
+const JWKS = createRemoteJWKSet(new URL('/api/auth/jwks', authUrl));
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -30,7 +34,10 @@ export async function authenticate(
   const token = authHeader.slice('Bearer '.length);
 
   try {
-    const { payload } = await jwtVerify(token, JWKS);
+    const { payload } = await jwtVerify(token, JWKS, {
+      issuer: authUrl,
+      audience: authUrl,
+    });
 
     if (!payload.sub) {
       res.status(401).json({ error: 'Invalid token payload' });
