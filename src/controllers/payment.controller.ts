@@ -1,6 +1,8 @@
 import type { Request, Response } from 'express';
 import { stripe } from '../lib/stripe.js';
 import { prisma } from '../lib/prisma.js';
+import { confirmBooking } from '../services/payment.service.js';
+import { notifyBookingConfirmed } from '../services/email.service.js';
 
 export async function handleStripeWebhook(req: Request, res: Response) {
   const signature = req.headers['stripe-signature'];
@@ -26,19 +28,14 @@ export async function handleStripeWebhook(req: Request, res: Response) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
     const appointmentId = session.metadata?.appointmentId;
-    const paymentIntentId = session.payment_intent as string;
+    const paymentIntentId = session.payment_intent;
 
-    if (appointmentId) {
-      await prisma.$transaction([
-        prisma.appointment.update({
-          where: { id: appointmentId },
-          data: { status: 'BOOKED' },
-        }),
-        prisma.payment.update({
-          where: { appointmentId },
-          data: { status: 'SUCCEEDED', stripePaymentIntentId: paymentIntentId },
-        }),
-      ]);
+    if (appointmentId && typeof paymentIntentId === 'string') {
+      const confirmed = await confirmBooking(appointmentId, paymentIntentId);
+
+      if (confirmed) {
+        await notifyBookingConfirmed(appointmentId);
+      }
     }
   }
 

@@ -42,6 +42,29 @@ export async function createPaymentSession(
   return session.url!;
 }
 
+export async function confirmBooking(
+  appointmentId: string,
+  paymentIntentId: string,
+): Promise<boolean> {
+  return prisma.$transaction(async tx => {
+    const updated = await tx.appointment.updateMany({
+      where: { id: appointmentId, status: 'PENDING_PAYMENT' },
+      data: { status: 'BOOKED' },
+    });
+
+    if (updated.count === 0) {
+      return false;
+    }
+
+    await tx.payment.update({
+      where: { appointmentId },
+      data: { status: 'SUCCEEDED', stripePaymentIntentId: paymentIntentId },
+    });
+
+    return true;
+  });
+}
+
 export async function refundAppointmentPayment(
   appointmentId: string,
   stripePaymentIntentId: string,
