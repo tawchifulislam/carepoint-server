@@ -11,6 +11,7 @@ import {
   refundAppointmentPayment,
 } from '../services/payment.service.js';
 import type { AuthenticatedRequest } from '../middlewares/authenticate.js';
+import { idParamsSchema } from '../lib/validators/common.schema.js';
 
 const paramsSchema = z.object({ id: z.string().cuid() });
 const CANCELLATION_CUTOFF_MS = 2 * 60 * 60 * 1000;
@@ -109,4 +110,37 @@ export async function cancelAppointment(
   });
 
   res.json(updated);
+}
+
+export async function getAppointment(req: AuthenticatedRequest, res: Response) {
+  const params = idParamsSchema.safeParse(req.params);
+
+  if (!params.success) {
+    res.status(400).json({ error: 'Invalid appointment id' });
+    return;
+  }
+
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: params.data.id },
+    include: {
+      doctor: { include: { user: true, clinic: true } },
+      patient: { select: { name: true, email: true } },
+      payment: true,
+    },
+  });
+
+  if (!appointment) {
+    res.status(404).json({ error: 'Appointment not found' });
+    return;
+  }
+
+  const isOwner = appointment.patientId === req.user!.id;
+  const isDoctor = appointment.doctor.userId === req.user!.id;
+
+  if (!isOwner && !isDoctor && req.user!.role !== 'SUPER_ADMIN') {
+    res.status(403).json({ error: 'Not authorized to view this appointment' });
+    return;
+  }
+
+  res.json(appointment);
 }
