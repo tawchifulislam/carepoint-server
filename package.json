@@ -23,6 +23,8 @@
     "date-fns-tz": "^3.2.0",
     "dotenv": "^18.0.4",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
     "pg": "^8.23.0",
     "prisma": "^7.10.0",
     "resend": "^6.30.0",
@@ -30,10 +32,12 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
+    "@faker-js/faker": "^10.6.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.3",
     "@types/pg": "^8.23.1",
+    "cuid": "^3.0.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.0.2"

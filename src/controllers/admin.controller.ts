@@ -1,5 +1,4 @@
 import type { Response } from 'express';
-import { z } from 'zod';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { approvalDecisionSchema } from '../lib/validators/approval.schema.js';
@@ -62,7 +61,8 @@ export async function decideDoctorApproval(
 
   const isOwningClinicAdmin =
     req.user!.role === 'CLINIC_ADMIN' &&
-    doctor.clinic.adminUserId === req.user!.id;
+    doctor.clinic.adminUserId === req.user!.id &&
+    doctor.clinic.approvalStatus === 'APPROVED';
 
   if (!isOwningClinicAdmin && req.user!.role !== 'SUPER_ADMIN') {
     res.status(403).json({ error: 'Not authorized to approve this doctor' });

@@ -129,8 +129,9 @@ model Appointment {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
-  @@unique([doctorId, slotStart])
   @@index([patientId])
+  @@index([status, reminderSentAt, slotStart])
+  @@index([doctorId, status])
   @@map("appointments")
 }
 
