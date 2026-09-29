@@ -39,23 +39,24 @@ export async function handleStripeWebhook(req: Request, res: Response) {
     }
   }
 
-  if (event.type === 'checkout.session.expired') {
-    const session = event.data.object;
-    const appointmentId = session.metadata?.appointmentId;
+    if (event.type === 'checkout.session.expired') {
+      const session = event.data.object;
+      const appointmentId = session.metadata?.appointmentId;
 
-    if (appointmentId) {
-      await prisma.$transaction([
-        prisma.appointment.update({
-          where: { id: appointmentId },
+      if (appointmentId) {
+        const cancelled = await prisma.appointment.updateMany({
+          where: { id: appointmentId, status: 'PENDING_PAYMENT' },
           data: { status: 'CANCELLED' },
-        }),
-        prisma.payment.update({
-          where: { appointmentId },
-          data: { status: 'FAILED' },
-        }),
-      ]);
+        });
+
+        if (cancelled.count > 0) {
+          await prisma.payment.update({
+            where: { appointmentId },
+            data: { status: 'FAILED' },
+          });
+        }
+      }
     }
-  }
 
   res.json({ received: true });
 }

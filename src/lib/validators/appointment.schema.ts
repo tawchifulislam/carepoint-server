@@ -5,6 +5,10 @@ export const createAppointmentSchema = z.object({
   slotStart: z.string().datetime(),
 });
 
+export const rescheduleAppointmentSchema = z.object({
+  slotStart: z.string().datetime(),
+});
+
 export const updateAppointmentStatusSchema = z.object({
   status: z.enum(['COMPLETED', 'NO_SHOW']),
 });
