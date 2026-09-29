@@ -10,6 +10,7 @@ import { appointmentRoutes } from './routes/appointment.routes.js';
 import { paymentRoutes } from './routes/payment.routes.js';
 import { errorHandler, notFoundHandler } from './middlewares/error-handler.js';
 import { startReminderScheduler } from './services/reminder.service.js';
+import { userRoutes } from './routes/user.routes.js';
 
 const app = express();
 
@@ -33,6 +34,7 @@ app.use('/api/clinics', clinicRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/me', userRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
