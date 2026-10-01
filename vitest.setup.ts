@@ -7,6 +7,7 @@ vi.mock('./src/lib/stripe.js', () => ({
   stripe: {
     checkout: { sessions: { create: vi.fn() } },
     refunds: { create: vi.fn() },
+    webhooks: { constructEvent: vi.fn() },
   },
 }));
 
