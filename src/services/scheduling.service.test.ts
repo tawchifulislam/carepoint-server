@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { fromZonedTime } from 'date-fns-tz';
 import { prisma } from '../lib/prisma.js';
-import { bookAppointment } from './scheduling.service.js';
+import { reserveAppointment } from './scheduling.service.js';
 
 function nextWeekdayDateKey(targetWeekday: number): string {
   const now = new Date();
@@ -96,8 +96,8 @@ describe('concurrent booking', () => {
 
   it('only allows one of two simultaneous bookings for the same slot to succeed', async () => {
     const results = await Promise.allSettled([
-      bookAppointment(doctorId, patientAId, slotStart),
-      bookAppointment(doctorId, patientBId, slotStart),
+      reserveAppointment(doctorId, patientAId, slotStart),
+      reserveAppointment(doctorId, patientBId, slotStart),
     ]);
 
     const succeeded = results.filter(r => r.status === 'fulfilled');
