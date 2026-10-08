@@ -10,6 +10,7 @@ import { adminRoutes } from './routes/admin.routes.js';
 import { appointmentRoutes } from './routes/appointment.routes.js';
 import { paymentRoutes } from './routes/payment.routes.js';
 import { userRoutes } from './routes/user.routes.js';
+import { statsRoutes } from './routes/stats.routes.js';
 import { errorHandler, notFoundHandler } from './middlewares/error-handler.js';
 
 export const app = express();
@@ -44,6 +45,7 @@ app.use('/api/doctors', doctorRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/me', userRoutes);
+app.use('/api/stats', statsRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
