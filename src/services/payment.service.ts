@@ -91,6 +91,29 @@ export async function confirmBooking(
   });
 }
 
+export async function reconcilePayment(
+  appointmentId: string,
+): Promise<boolean> {
+  const payment = await prisma.payment.findUnique({ where: { appointmentId } });
+
+  if (!payment || !payment.stripePaymentIntentId.startsWith('cs_')) {
+    return false;
+  }
+
+  const session = await stripe.checkout.sessions.retrieve(
+    payment.stripePaymentIntentId,
+  );
+
+  if (
+    session.payment_status !== 'paid' ||
+    typeof session.payment_intent !== 'string'
+  ) {
+    return false;
+  }
+
+  return confirmBooking(appointmentId, session.payment_intent);
+}
+
 export async function refundAppointmentPayment(
   appointmentId: string,
   stripePaymentIntentId: string,
