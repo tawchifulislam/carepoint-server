@@ -8,16 +8,25 @@ import {
   rescheduleAppointmentSchema,
 } from '../lib/validators/appointment.schema.js';
 import {
+  getAvailableSlots,
   reserveAppointment,
   SlotUnavailableError,
   toDhakaDateKey,
-  getAvailableSlots,
 } from '../services/scheduling.service.js';
-import { createPaymentSession } from '../services/payment.service.js';
-import { refundAppointmentPayment } from '../services/payment.service.js';
+import {
+  createPaymentSession,
+  refundAppointmentPayment,
+} from '../services/payment.service.js';
 import type { AuthenticatedRequest } from '../middlewares/authenticate.js';
 
 const CANCELLATION_CUTOFF_MS = 2 * 60 * 60 * 1000;
+
+const appointmentDoctorSelect = {
+  id: true,
+  specialty: true,
+  user: { select: { name: true } },
+  clinic: { select: { name: true, address: true } },
+} satisfies Prisma.DoctorSelect;
 
 export async function createAppointment(
   req: AuthenticatedRequest,
@@ -74,7 +83,13 @@ export async function getMyAppointments(
     prisma.appointment.count({ where }),
     prisma.appointment.findMany({
       where,
-      include: { doctor: { include: { user: true, clinic: true } } },
+      select: {
+        id: true,
+        status: true,
+        slotStart: true,
+        slotEnd: true,
+        doctor: { select: appointmentDoctorSelect },
+      },
       orderBy: { slotStart: 'desc' },
       skip: (page - 1) * pageSize,
       take: pageSize,
@@ -100,10 +115,15 @@ export async function getAppointment(req: AuthenticatedRequest, res: Response) {
 
   const appointment = await prisma.appointment.findUnique({
     where: { id: params.data.id },
-    include: {
-      doctor: { include: { user: true, clinic: true } },
-      patient: { select: { name: true, email: true } },
-      payment: true,
+    select: {
+      id: true,
+      doctorId: true,
+      patientId: true,
+      status: true,
+      slotStart: true,
+      slotEnd: true,
+      patient: { select: { name: true } },
+      doctor: { select: { ...appointmentDoctorSelect, userId: true } },
     },
   });
 
@@ -120,7 +140,19 @@ export async function getAppointment(req: AuthenticatedRequest, res: Response) {
     return;
   }
 
-  res.json(appointment);
+  res.json({
+    id: appointment.id,
+    doctorId: appointment.doctorId,
+    status: appointment.status,
+    slotStart: appointment.slotStart,
+    slotEnd: appointment.slotEnd,
+    patient: appointment.patient,
+    doctor: {
+      specialty: appointment.doctor.specialty,
+      user: appointment.doctor.user,
+      clinic: appointment.doctor.clinic,
+    },
+  });
 }
 
 export async function cancelAppointment(
