@@ -7,7 +7,10 @@ import {
   createDoctorSchema,
   listDoctorsQuerySchema,
 } from '../lib/validators/doctor.schema.js';
-import { getAvailableSlots } from '../services/scheduling.service.js';
+import {
+  getAvailableSlots,
+  getNextAvailableSlots,
+} from '../services/scheduling.service.js';
 import type { AuthenticatedRequest } from '../middlewares/authenticate.js';
 
 const publiclyVisible = {
@@ -123,8 +126,15 @@ export async function listDoctors(req: Request, res: Response) {
     }),
   ]);
 
+  const nextSlots = await getNextAvailableSlots(
+    doctors.map(doctor => doctor.id),
+  );
+
   res.json({
-    data: doctors.map(toPublicDoctor),
+    data: doctors.map(doctor => ({
+      ...toPublicDoctor(doctor),
+      nextAvailableSlot: nextSlots.get(doctor.id) ?? null,
+    })),
     page,
     pageSize,
     total,

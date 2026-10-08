@@ -1,10 +1,16 @@
 import { addMinutes, isBefore } from 'date-fns';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { Prisma } from '@prisma/client';
-import type { Appointment } from '@prisma/client';
+import type { Appointment, AppointmentStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 
 const CLINIC_TIMEZONE = 'Asia/Dhaka';
+const ACTIVE_STATUSES: AppointmentStatus[] = [
+  'PENDING_PAYMENT',
+  'BOOKED',
+  'COMPLETED',
+];
+const NEXT_SLOT_WINDOW_DAYS = 14;
 
 interface Slot {
   start: string;
@@ -14,6 +20,14 @@ interface Slot {
 interface DaySlots {
   date: string;
   slots: Slot[];
+}
+
+interface AvailabilityRule {
+  weekday: number;
+  startTime: string;
+  endTime: string;
+  slotDurationMin: number;
+  bufferMin: number;
 }
 
 export class SlotUnavailableError extends Error {}
@@ -59,38 +73,14 @@ export function getDayRange(dateKey: string): { start: Date; end: Date } {
   };
 }
 
-export async function getAvailableSlots(
-  doctorId: string,
+function buildDaySlots(
+  rules: AvailabilityRule[],
+  blockedDates: Set<string>,
+  takenSlots: Set<string>,
   fromDateKey: string,
   toDateKey: string,
-): Promise<DaySlots[]> {
-  const rangeStart = getDayRange(fromDateKey).start;
-  const rangeEnd = getDayRange(toDateKey).end;
-
-  const [availability, exceptions, appointments] = await Promise.all([
-    prisma.availability.findMany({ where: { doctorId } }),
-    prisma.availabilityException.findMany({
-      where: {
-        doctorId,
-        isBlocked: true,
-        date: { gte: new Date(fromDateKey), lte: new Date(toDateKey) },
-      },
-    }),
-    prisma.appointment.findMany({
-      where: {
-        doctorId,
-        slotStart: { gte: rangeStart, lt: rangeEnd },
-        status: { in: ['PENDING_PAYMENT', 'BOOKED', 'COMPLETED'] },
-      },
-      select: { slotStart: true },
-    }),
-  ]);
-
-  const blockedDates = new Set(
-    exceptions.map(e => e.date.toISOString().slice(0, 10)),
-  );
-  const takenSlots = new Set(appointments.map(a => a.slotStart.toISOString()));
-  const now = new Date();
+  now: Date,
+): DaySlots[] {
   const days: DaySlots[] = [];
 
   for (
@@ -104,7 +94,7 @@ export async function getAvailableSlots(
     }
 
     const weekday = getWeekday(dateKey);
-    const dayRules = availability.filter(a => a.weekday === weekday);
+    const dayRules = rules.filter(rule => rule.weekday === weekday);
     const slots: Slot[] = [];
 
     for (const rule of dayRules) {
@@ -126,10 +116,131 @@ export async function getAvailableSlots(
       }
     }
 
+    slots.sort((a, b) => a.start.localeCompare(b.start));
     days.push({ date: dateKey, slots });
   }
 
   return days;
+}
+
+export async function getAvailableSlots(
+  doctorId: string,
+  fromDateKey: string,
+  toDateKey: string,
+): Promise<DaySlots[]> {
+  const rangeStart = getDayRange(fromDateKey).start;
+  const rangeEnd = getDayRange(toDateKey).end;
+
+  const [rules, exceptions, appointments] = await Promise.all([
+    prisma.availability.findMany({ where: { doctorId } }),
+    prisma.availabilityException.findMany({
+      where: {
+        doctorId,
+        isBlocked: true,
+        date: { gte: new Date(fromDateKey), lte: new Date(toDateKey) },
+      },
+    }),
+    prisma.appointment.findMany({
+      where: {
+        doctorId,
+        slotStart: { gte: rangeStart, lt: rangeEnd },
+        status: { in: ACTIVE_STATUSES },
+      },
+      select: { slotStart: true },
+    }),
+  ]);
+
+  const blockedDates = new Set(
+    exceptions.map(e => e.date.toISOString().slice(0, 10)),
+  );
+  const takenSlots = new Set(appointments.map(a => a.slotStart.toISOString()));
+
+  return buildDaySlots(
+    rules,
+    blockedDates,
+    takenSlots,
+    fromDateKey,
+    toDateKey,
+    new Date(),
+  );
+}
+
+export async function getNextAvailableSlots(
+  doctorIds: string[],
+): Promise<Map<string, string | null>> {
+  const result = new Map<string, string | null>();
+
+  for (const id of doctorIds) {
+    result.set(id, null);
+  }
+
+  if (doctorIds.length === 0) {
+    return result;
+  }
+
+  const fromDateKey = toDhakaDateKey(new Date());
+  let toDateKey = fromDateKey;
+
+  for (let i = 1; i < NEXT_SLOT_WINDOW_DAYS; i++) {
+    toDateKey = nextDateKey(toDateKey);
+  }
+
+  const rangeStart = getDayRange(fromDateKey).start;
+  const rangeEnd = getDayRange(toDateKey).end;
+
+  const [rules, exceptions, appointments] = await Promise.all([
+    prisma.availability.findMany({ where: { doctorId: { in: doctorIds } } }),
+    prisma.availabilityException.findMany({
+      where: {
+        doctorId: { in: doctorIds },
+        isBlocked: true,
+        date: { gte: new Date(fromDateKey), lte: new Date(toDateKey) },
+      },
+    }),
+    prisma.appointment.findMany({
+      where: {
+        doctorId: { in: doctorIds },
+        slotStart: { gte: rangeStart, lt: rangeEnd },
+        status: { in: ACTIVE_STATUSES },
+      },
+      select: { doctorId: true, slotStart: true },
+    }),
+  ]);
+
+  const now = new Date();
+
+  for (const doctorId of doctorIds) {
+    const doctorRules = rules.filter(rule => rule.doctorId === doctorId);
+
+    if (doctorRules.length === 0) {
+      continue;
+    }
+
+    const blockedDates = new Set(
+      exceptions
+        .filter(e => e.doctorId === doctorId)
+        .map(e => e.date.toISOString().slice(0, 10)),
+    );
+    const takenSlots = new Set(
+      appointments
+        .filter(a => a.doctorId === doctorId)
+        .map(a => a.slotStart.toISOString()),
+    );
+
+    const days = buildDaySlots(
+      doctorRules,
+      blockedDates,
+      takenSlots,
+      fromDateKey,
+      toDateKey,
+      now,
+    );
+    const firstSlot = days.flatMap(day => day.slots)[0];
+
+    result.set(doctorId, firstSlot?.start ?? null);
+  }
+
+  return result;
 }
 
 export async function reserveAppointment(
