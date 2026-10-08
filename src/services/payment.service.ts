@@ -2,7 +2,9 @@ import type { Appointment, Doctor } from '@prisma/client';
 import { stripe } from '../lib/stripe.js';
 import { prisma } from '../lib/prisma.js';
 
-const CHECKOUT_EXPIRY_SECONDS = 30 * 60;
+export const CHECKOUT_EXPIRY_SECONDS = 30 * 60;
+
+export class PaymentSessionInactiveError extends Error {}
 
 export async function createPaymentSession(
   appointment: Appointment,
@@ -40,6 +42,30 @@ export async function createPaymentSession(
   });
 
   return session.url!;
+}
+
+export async function getResumeCheckoutUrl(
+  appointmentId: string,
+): Promise<string> {
+  const payment = await prisma.payment.findUnique({ where: { appointmentId } });
+
+  if (!payment || !payment.stripePaymentIntentId.startsWith('cs_')) {
+    throw new PaymentSessionInactiveError(
+      'No active payment session for this appointment',
+    );
+  }
+
+  const session = await stripe.checkout.sessions.retrieve(
+    payment.stripePaymentIntentId,
+  );
+
+  if (session.status !== 'open' || !session.url) {
+    throw new PaymentSessionInactiveError(
+      'This payment session is no longer active',
+    );
+  }
+
+  return session.url;
 }
 
 export async function confirmBooking(

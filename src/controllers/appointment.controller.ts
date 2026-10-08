@@ -14,7 +14,10 @@ import {
   toDhakaDateKey,
 } from '../services/scheduling.service.js';
 import {
+  CHECKOUT_EXPIRY_SECONDS,
   createPaymentSession,
+  getResumeCheckoutUrl,
+  PaymentSessionInactiveError,
   refundAppointmentPayment,
 } from '../services/payment.service.js';
 import type { AuthenticatedRequest } from '../middlewares/authenticate.js';
@@ -122,6 +125,7 @@ export async function getAppointment(req: AuthenticatedRequest, res: Response) {
       status: true,
       slotStart: true,
       slotEnd: true,
+      createdAt: true,
       patient: { select: { name: true } },
       doctor: { select: { ...appointmentDoctorSelect, userId: true } },
     },
@@ -146,6 +150,12 @@ export async function getAppointment(req: AuthenticatedRequest, res: Response) {
     status: appointment.status,
     slotStart: appointment.slotStart,
     slotEnd: appointment.slotEnd,
+    holdExpiresAt:
+      appointment.status === 'PENDING_PAYMENT'
+        ? new Date(
+            appointment.createdAt.getTime() + CHECKOUT_EXPIRY_SECONDS * 1000,
+          )
+        : null,
     patient: appointment.patient,
     doctor: {
       specialty: appointment.doctor.specialty,
@@ -153,6 +163,48 @@ export async function getAppointment(req: AuthenticatedRequest, res: Response) {
       clinic: appointment.doctor.clinic,
     },
   });
+}
+
+export async function resumePayment(req: AuthenticatedRequest, res: Response) {
+  const params = idParamsSchema.safeParse(req.params);
+
+  if (!params.success) {
+    res.status(400).json({ error: 'Invalid appointment id' });
+    return;
+  }
+
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: params.data.id },
+    select: { id: true, patientId: true, status: true },
+  });
+
+  if (!appointment) {
+    res.status(404).json({ error: 'Appointment not found' });
+    return;
+  }
+
+  if (appointment.patientId !== req.user!.id) {
+    res
+      .status(403)
+      .json({ error: 'Not authorized to pay for this appointment' });
+    return;
+  }
+
+  if (appointment.status !== 'PENDING_PAYMENT') {
+    res.status(409).json({ error: 'This appointment is not awaiting payment' });
+    return;
+  }
+
+  try {
+    const checkoutUrl = await getResumeCheckoutUrl(appointment.id);
+    res.json({ checkoutUrl });
+  } catch (error) {
+    if (error instanceof PaymentSessionInactiveError) {
+      res.status(409).json({ error: error.message });
+      return;
+    }
+    throw error;
+  }
 }
 
 export async function cancelAppointment(

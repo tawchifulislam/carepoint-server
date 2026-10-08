@@ -5,7 +5,7 @@ import { afterAll, vi } from 'vitest';
 
 vi.mock('./src/lib/stripe.js', () => ({
   stripe: {
-    checkout: { sessions: { create: vi.fn() } },
+    checkout: { sessions: { create: vi.fn(), retrieve: vi.fn() } },
     refunds: { create: vi.fn() },
     webhooks: { constructEvent: vi.fn() },
   },
