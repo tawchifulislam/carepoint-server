@@ -22,16 +22,15 @@ vi.mock('./src/lib/resend.js', () => ({
 afterAll(async () => {
   const { prisma } = await import('./src/lib/prisma.js');
 
-  await prisma.$transaction([
-    prisma.payment.deleteMany(),
-    prisma.appointment.deleteMany(),
-    prisma.availabilityException.deleteMany(),
-    prisma.availability.deleteMany(),
-    prisma.doctor.deleteMany(),
-    prisma.clinic.deleteMany(),
-    prisma.session.deleteMany(),
-    prisma.account.deleteMany(),
-    prisma.user.deleteMany(),
-  ]);
+  await prisma.payment.deleteMany();
+  await prisma.appointment.deleteMany();
+  await prisma.availabilityException.deleteMany();
+  await prisma.availability.deleteMany();
+  await prisma.doctor.deleteMany();
+  await prisma.clinic.deleteMany();
+  await prisma.session.deleteMany();
+  await prisma.account.deleteMany();
+  await prisma.user.deleteMany();
+
   await prisma.$disconnect();
 });

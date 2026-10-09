@@ -12,7 +12,12 @@ import {
 export const clinicRoutes = Router();
 
 clinicRoutes.get('/', listApprovedClinics);
-clinicRoutes.post('/', authenticate, applyAsClinicAdmin);
+clinicRoutes.post(
+  '/',
+  authenticate,
+  requireRole('PATIENT'),
+  applyAsClinicAdmin,
+);
 clinicRoutes.get('/me', authenticate, requireRole('CLINIC_ADMIN'), getMyClinic);
 clinicRoutes.get(
   '/me/doctors',

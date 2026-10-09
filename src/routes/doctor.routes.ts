@@ -33,7 +33,7 @@ portalRoutes.delete('/exceptions/:id', deleteException);
 export const doctorRoutes = Router();
 
 doctorRoutes.get('/', listDoctors);
-doctorRoutes.post('/', authenticate, applyAsDoctor);
+doctorRoutes.post('/', authenticate, requireRole('PATIENT'), applyAsDoctor);
 doctorRoutes.use('/me', portalRoutes);
 doctorRoutes.get('/:id/availability', getDoctorAvailability);
 doctorRoutes.get('/:id', getDoctor);
