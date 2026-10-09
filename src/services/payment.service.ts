@@ -4,44 +4,62 @@ import { prisma } from '../lib/prisma.js';
 
 export const CHECKOUT_EXPIRY_SECONDS = 30 * 60;
 
+export type ReconcileOutcome = 'confirmed' | 'released' | 'unchanged';
+
 export class PaymentSessionInactiveError extends Error {}
 
 export async function createPaymentSession(
   appointment: Appointment,
   doctor: Doctor,
 ): Promise<string> {
-  const session = await stripe.checkout.sessions.create(
-    {
-      mode: 'payment',
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            unit_amount: Math.round(Number(doctor.consultationFee) * 100),
-            product_data: { name: `Consultation - ${doctor.specialty}` },
+  try {
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: 'payment',
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              unit_amount: Math.round(Number(doctor.consultationFee) * 100),
+              product_data: { name: `Consultation - ${doctor.specialty}` },
+            },
+            quantity: 1,
           },
-          quantity: 1,
-        },
-      ],
-      success_url: `${process.env.CLIENT_URL}/appointments/${appointment.id}?status=success`,
-      cancel_url: `${process.env.CLIENT_URL}/appointments/${appointment.id}?status=cancelled`,
-      expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_EXPIRY_SECONDS,
-      metadata: { appointmentId: appointment.id },
-    },
-    { idempotencyKey: `checkout-${appointment.id}` },
-  );
+        ],
+        success_url: `${process.env.CLIENT_URL}/appointments/${appointment.id}?status=success`,
+        cancel_url: `${process.env.CLIENT_URL}/appointments/${appointment.id}?status=cancelled`,
+        expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_EXPIRY_SECONDS,
+        metadata: { appointmentId: appointment.id },
+      },
+      { idempotencyKey: `checkout-${appointment.id}` },
+    );
 
-  await prisma.payment.create({
-    data: {
-      appointment: { connect: { id: appointment.id } },
-      stripePaymentIntentId: session.id,
-      amount: doctor.consultationFee,
-      status: 'PENDING',
-    },
-  });
+    await prisma.payment.create({
+      data: {
+        appointment: { connect: { id: appointment.id } },
+        stripePaymentIntentId: session.id,
+        amount: doctor.consultationFee,
+        status: 'PENDING',
+      },
+    });
 
-  return session.url!;
+    return session.url!;
+  } catch (error) {
+    await prisma.appointment
+      .updateMany({
+        where: { id: appointment.id, status: 'PENDING_PAYMENT' },
+        data: { status: 'CANCELLED' },
+      })
+      .catch(releaseError =>
+        console.error(
+          'Failed to release slot after checkout error',
+          releaseError,
+        ),
+      );
+
+    throw error;
+  }
 }
 
 export async function getResumeCheckoutUrl(
@@ -91,13 +109,35 @@ export async function confirmBooking(
   });
 }
 
-export async function reconcilePayment(
+export async function releaseUnpaidBooking(
   appointmentId: string,
 ): Promise<boolean> {
+  return prisma.$transaction(async tx => {
+    const cancelled = await tx.appointment.updateMany({
+      where: { id: appointmentId, status: 'PENDING_PAYMENT' },
+      data: { status: 'CANCELLED' },
+    });
+
+    if (cancelled.count === 0) {
+      return false;
+    }
+
+    await tx.payment.updateMany({
+      where: { appointmentId },
+      data: { status: 'FAILED' },
+    });
+
+    return true;
+  });
+}
+
+export async function reconcilePayment(
+  appointmentId: string,
+): Promise<ReconcileOutcome> {
   const payment = await prisma.payment.findUnique({ where: { appointmentId } });
 
   if (!payment || !payment.stripePaymentIntentId.startsWith('cs_')) {
-    return false;
+    return 'unchanged';
   }
 
   const session = await stripe.checkout.sessions.retrieve(
@@ -105,13 +145,22 @@ export async function reconcilePayment(
   );
 
   if (
-    session.payment_status !== 'paid' ||
-    typeof session.payment_intent !== 'string'
+    session.payment_status === 'paid' &&
+    typeof session.payment_intent === 'string'
   ) {
-    return false;
+    const confirmed = await confirmBooking(
+      appointmentId,
+      session.payment_intent,
+    );
+    return confirmed ? 'confirmed' : 'unchanged';
   }
 
-  return confirmBooking(appointmentId, session.payment_intent);
+  if (session.status === 'expired') {
+    const released = await releaseUnpaidBooking(appointmentId);
+    return released ? 'released' : 'unchanged';
+  }
+
+  return 'unchanged';
 }
 
 export async function refundAppointmentPayment(

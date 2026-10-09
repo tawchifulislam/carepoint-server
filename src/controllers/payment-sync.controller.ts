@@ -29,9 +29,9 @@ export async function syncPayment(req: AuthenticatedRequest, res: Response) {
   }
 
   if (appointment.status === 'PENDING_PAYMENT') {
-    const confirmed = await reconcilePayment(appointment.id);
+    const outcome = await reconcilePayment(appointment.id);
 
-    if (confirmed) {
+    if (outcome === 'confirmed') {
       await notifyBookingConfirmed(appointment.id);
     }
   }
