@@ -7,12 +7,12 @@ import {
   getDoctorAvailability,
   listDoctors,
 } from '../controllers/doctor.controller.js';
+import { listDoctorAppointments } from '../controllers/doctor-appointments.controller.js';
 import {
   createAvailabilityRule,
   createException,
   deleteException,
   deleteMyAvailability,
-  listMyAppointments,
   listMyAvailability,
   listMyExceptions,
   updateMyAppointmentStatus,
@@ -24,7 +24,7 @@ portalRoutes.use(authenticate, requireRole('DOCTOR'), requireApproved);
 portalRoutes.get('/availability', listMyAvailability);
 portalRoutes.post('/availability', createAvailabilityRule);
 portalRoutes.delete('/availability/:id', deleteMyAvailability);
-portalRoutes.get('/appointments', listMyAppointments);
+portalRoutes.get('/appointments', listDoctorAppointments);
 portalRoutes.patch('/appointments/:id/status', updateMyAppointmentStatus);
 portalRoutes.get('/exceptions', listMyExceptions);
 portalRoutes.post('/exceptions', createException);
