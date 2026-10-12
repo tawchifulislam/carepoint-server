@@ -168,9 +168,10 @@ describe('appointment routes', () => {
       `/api/appointments/${appointment.id}/cancel`,
     );
     expect(first.status).toBe(200);
-    expect(stripe.refunds.create).toHaveBeenCalledWith({
-      payment_intent: 'pi_test_123',
-    });
+    expect(stripe.refunds.create).toHaveBeenCalledWith(
+      { payment_intent: 'pi_test_123' },
+      { idempotencyKey: `refund-${appointment.id}` },
+    );
 
     const second = await request(app).patch(
       `/api/appointments/${appointment.id}/cancel`,

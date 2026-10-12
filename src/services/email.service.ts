@@ -8,6 +8,7 @@ const EMAIL_FROM =
 
 interface AppointmentEmail {
   appointmentId: string;
+  doctorId: string;
   patientName: string;
   patientEmail: string;
   doctorName: string;
@@ -44,14 +45,15 @@ function row(label: string, value: string): string {
 
 function renderEmail(
   heading: string,
-  intro: string,
+  paragraphs: string[],
   details: AppointmentEmail,
+  footerHtml = '',
 ): string {
   return `
     <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #12181f;">
       <h2 style="color: #0e6e55;">${escapeHtml(heading)}</h2>
       <p>Hi ${escapeHtml(details.patientName)},</p>
-      <p>${escapeHtml(intro)}</p>
+      ${paragraphs.map(text => `<p>${escapeHtml(text)}</p>`).join('')}
       <table style="border-collapse: collapse; margin: 16px 0;">
         ${row('Doctor', details.doctorName)}
         ${row('Specialty', details.specialty)}
@@ -60,6 +62,7 @@ function renderEmail(
         ${row('When', formatSlot(details.slotStart))}
         ${row('Reference', details.appointmentId)}
       </table>
+      ${footerHtml}
       <p style="color: #5b6b79; font-size: 13px;">Time shown in Bangladesh time (Asia/Dhaka).</p>
     </div>`;
 }
@@ -90,6 +93,7 @@ async function loadAppointmentEmail(
 
   return {
     appointmentId: appointment.id,
+    doctorId: appointment.doctorId,
     patientName: appointment.patient.name,
     patientEmail: appointment.patient.email,
     doctorName: appointment.doctor.user.name,
@@ -111,7 +115,7 @@ export async function notifyBookingConfirmed(
       `Appointment confirmed: ${formatSlot(details.slotStart)}`,
       renderEmail(
         'Your appointment is confirmed',
-        'Your consultation has been booked and paid.',
+        ['Your consultation has been booked and paid.'],
         details,
       ),
     );
@@ -131,11 +135,47 @@ export async function notifyAppointmentReminder(
       `Reminder: appointment on ${formatSlot(details.slotStart)}`,
       renderEmail(
         'Appointment reminder',
-        'This is a reminder about your upcoming consultation.',
+        ['This is a reminder about your upcoming consultation.'],
         details,
       ),
     );
   } catch (error) {
     console.error('Appointment reminder email failed', error);
+  }
+}
+
+export async function notifyAppointmentCancelledByDoctor(
+  appointmentId: string,
+  refunded: boolean,
+): Promise<void> {
+  try {
+    const details = await loadAppointmentEmail(appointmentId);
+
+    const paragraphs = [
+      'The clinic had to cancel this appointment. We are sorry for the inconvenience.',
+    ];
+
+    if (refunded) {
+      paragraphs.push(
+        'A full refund has been issued to your original payment method. Refunds usually take 5 to 10 business days to appear on your statement.',
+      );
+    }
+
+    const clientUrl = process.env.CLIENT_URL ?? 'http://localhost:3000';
+    const rebookUrl = `${clientUrl}/doctors/${details.doctorId}`;
+    const footerHtml = `<p><a href="${escapeHtml(rebookUrl)}" style="color: #0e6e55;">Book another time</a></p>`;
+
+    await send(
+      details.patientEmail,
+      `Appointment cancelled: ${formatSlot(details.slotStart)}`,
+      renderEmail(
+        'Your appointment was cancelled',
+        paragraphs,
+        details,
+        footerHtml,
+      ),
+    );
+  } catch (error) {
+    console.error('Cancellation email failed', error);
   }
 }

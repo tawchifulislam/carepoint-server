@@ -18,8 +18,11 @@ import {
   createPaymentSession,
   getResumeCheckoutUrl,
   PaymentSessionInactiveError,
-  refundAppointmentPayment,
 } from '../services/payment.service.js';
+import {
+  cancelBookedAppointment,
+  RefundFailedError,
+} from '../services/appointment-cancellation.service.js';
 import type { AuthenticatedRequest } from '../middlewares/authenticate.js';
 
 const CANCELLATION_CUTOFF_MS = 2 * 60 * 60 * 1000;
@@ -220,7 +223,7 @@ export async function cancelAppointment(
 
   const appointment = await prisma.appointment.findUnique({
     where: { id: params.data.id },
-    include: { payment: true },
+    select: { id: true, patientId: true, status: true, slotStart: true },
   });
 
   if (!appointment) {
@@ -249,23 +252,24 @@ export async function cancelAppointment(
     return;
   }
 
-  const result = await prisma.appointment.updateMany({
-    where: { id: appointment.id, status: 'BOOKED' },
-    data: { status: 'CANCELLED' },
-  });
+  try {
+    const result = await cancelBookedAppointment(appointment.id);
 
-  if (result.count === 0) {
-    res
-      .status(409)
-      .json({ error: 'Appointment was changed by another request' });
-    return;
-  }
-
-  if (appointment.payment?.status === 'SUCCEEDED') {
-    await refundAppointmentPayment(
-      appointment.id,
-      appointment.payment.stripePaymentIntentId,
-    );
+    if (!result.cancelled) {
+      res
+        .status(409)
+        .json({ error: 'Appointment was changed by another request' });
+      return;
+    }
+  } catch (error) {
+    if (error instanceof RefundFailedError) {
+      res.status(502).json({
+        error:
+          'We could not process your refund, so the appointment was not cancelled. Please try again.',
+      });
+      return;
+    }
+    throw error;
   }
 
   const updated = await prisma.appointment.findUniqueOrThrow({

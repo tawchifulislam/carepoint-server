@@ -8,6 +8,7 @@ import {
   listDoctors,
 } from '../controllers/doctor.controller.js';
 import { listDoctorAppointments } from '../controllers/doctor-appointments.controller.js';
+import { cancelDoctorAppointment } from '../controllers/doctor-cancellation.controller.js';
 import {
   createAvailabilityRule,
   createException,
@@ -26,6 +27,7 @@ portalRoutes.post('/availability', createAvailabilityRule);
 portalRoutes.delete('/availability/:id', deleteMyAvailability);
 portalRoutes.get('/appointments', listDoctorAppointments);
 portalRoutes.patch('/appointments/:id/status', updateMyAppointmentStatus);
+portalRoutes.patch('/appointments/:id/cancel', cancelDoctorAppointment);
 portalRoutes.get('/exceptions', listMyExceptions);
 portalRoutes.post('/exceptions', createException);
 portalRoutes.delete('/exceptions/:id', deleteException);

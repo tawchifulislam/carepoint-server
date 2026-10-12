@@ -163,14 +163,20 @@ export async function reconcilePayment(
   return 'unchanged';
 }
 
-export async function refundAppointmentPayment(
+export async function refundPaymentIntent(
   appointmentId: string,
-  stripePaymentIntentId: string,
+  paymentIntentId: string,
 ): Promise<void> {
-  await stripe.refunds.create({ payment_intent: stripePaymentIntentId });
+  try {
+    await stripe.refunds.create(
+      { payment_intent: paymentIntentId },
+      { idempotencyKey: `refund-${appointmentId}` },
+    );
+  } catch (error) {
+    if ((error as { code?: string }).code === 'charge_already_refunded') {
+      return;
+    }
 
-  await prisma.payment.update({
-    where: { appointmentId },
-    data: { status: 'REFUNDED' },
-  });
+    throw error;
+  }
 }
