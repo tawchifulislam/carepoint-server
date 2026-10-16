@@ -5,6 +5,8 @@ import {
   decideClinicApproval,
   decideDoctorApproval,
   getPlatformMetrics,
+  listAdminClinics,
+  listAdminDoctors,
   listPendingClinics,
   listPendingDoctors,
 } from '../controllers/admin.controller.js';
@@ -13,6 +15,7 @@ export const adminRoutes = Router();
 
 adminRoutes.use(authenticate);
 
+adminRoutes.get('/clinics', requireRole('SUPER_ADMIN'), listAdminClinics);
 adminRoutes.get(
   '/clinics/pending',
   requireRole('SUPER_ADMIN'),
@@ -22,6 +25,11 @@ adminRoutes.patch(
   '/clinics/:id/approval',
   requireRole('SUPER_ADMIN'),
   decideClinicApproval,
+);
+adminRoutes.get(
+  '/doctors',
+  requireRole('SUPER_ADMIN', 'CLINIC_ADMIN'),
+  listAdminDoctors,
 );
 adminRoutes.get(
   '/doctors/pending',

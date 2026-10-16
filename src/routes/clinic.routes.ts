@@ -5,6 +5,7 @@ import {
   applyAsClinicAdmin,
   getClinicDashboard,
   getMyClinic,
+  getMyClinicDashboard,
   listApprovedClinics,
   listMyClinicDoctors,
 } from '../controllers/clinic.controller.js';
@@ -24,6 +25,12 @@ clinicRoutes.get(
   authenticate,
   requireRole('CLINIC_ADMIN'),
   listMyClinicDoctors,
+);
+clinicRoutes.get(
+  '/me/dashboard',
+  authenticate,
+  requireRole('CLINIC_ADMIN'),
+  getMyClinicDashboard,
 );
 clinicRoutes.get(
   '/:id/dashboard',
