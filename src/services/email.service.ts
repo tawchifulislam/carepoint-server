@@ -179,3 +179,33 @@ export async function notifyAppointmentCancelledByDoctor(
     console.error('Cancellation email failed', error);
   }
 }
+
+export async function sendPasswordResetEmail(params: {
+  to: string;
+  name: string;
+  url: string;
+}): Promise<void> {
+  if (process.env.LOG_RESET_LINKS === 'true') {
+    console.log(`Password reset link for ${params.to}: ${params.url}`);
+  }
+
+  try {
+    const safeUrl = escapeHtml(params.url);
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #12181f;">
+        <h2 style="color: #0e6e55;">Reset your password</h2>
+        <p>Hi ${escapeHtml(params.name)},</p>
+        <p>We received a request to reset the password for your CarePoint account. The link below works once and expires in 30 minutes.</p>
+        <p style="margin: 24px 0;">
+          <a href="${safeUrl}" style="background: #0c7489; color: #ffffff; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: bold;">Choose a new password</a>
+        </p>
+        <p style="color: #5b6b79; font-size: 13px;">Or paste this link into your browser:<br>${safeUrl}</p>
+        <p style="color: #5b6b79; font-size: 13px;">If you did not ask for this, you can ignore this email. Your password stays the same.</p>
+      </div>`;
+
+    await send(params.to, 'Reset your CarePoint password', html);
+  } catch (error) {
+    console.error('Password reset email failed', error);
+  }
+}
