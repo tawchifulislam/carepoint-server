@@ -30,7 +30,19 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const resetRequestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    message:
+      'Too many reset requests. Please wait a few minutes and try again.',
+  },
+});
+
 app.use('/api/auth', authLimiter);
+app.use('/api/auth/request-password-reset', resetRequestLimiter);
 app.all('/api/auth/*splat', toNodeHandler(auth));
 app.use('/api/payments', paymentRoutes);
 
