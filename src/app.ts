@@ -15,6 +15,8 @@ import { errorHandler, notFoundHandler } from './middlewares/error-handler.js';
 
 export const app = express();
 
+app.set('trust proxy', 1);
+
 app.use(helmet());
 app.use(
   cors({
@@ -35,10 +37,7 @@ const resetRequestLimiter = rateLimit({
   limit: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  message: {
-    message:
-      'Too many reset requests. Please wait a few minutes and try again.',
-  },
+  message: { message: 'Too many reset requests. Please wait a few minutes and try again.' },
 });
 
 app.use('/api/auth', authLimiter);
