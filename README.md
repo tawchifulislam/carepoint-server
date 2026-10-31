@@ -2,6 +2,8 @@
 
 REST API for CarePoint, a doctor appointment platform. Patients book real, conflict-free time slots and pay online, doctors and clinics manage their schedules, and admins review who goes live.
 
+[![CI](https://github.com/tawchifulislam/carepoint-server/actions/workflows/ci.yml/badge.svg)](https://github.com/tawchifulislam/carepoint-server/actions/workflows/ci.yml)
+
 - **Live API:** <https://carepoint-server-xwsq.onrender.com> (free tier, so the first request after idle can take up to a minute)
 - **Web app:** <https://carepoint-client.vercel.app>
 - **Client repository:** <https://github.com/tawchifulislam/carepoint-client>
