@@ -55,7 +55,7 @@ export async function applyAsDoctor(req: AuthenticatedRequest, res: Response) {
     where: { id: parsed.data.clinicId },
   });
 
-  if (!clinic || clinic.approvalStatus !== 'APPROVED') {
+  if (clinic?.approvalStatus !== 'APPROVED') {
     res.status(400).json({ error: 'Clinic not found or not approved' });
     return;
   }

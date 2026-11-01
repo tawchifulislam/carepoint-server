@@ -1,10 +1,11 @@
 import type { Request, Response } from 'express';
+import type Stripe from 'stripe';
 import { stripe } from '../lib/stripe.js';
+import { notifyBookingConfirmed } from '../services/email.service.js';
 import {
   confirmBooking,
   releaseUnpaidBooking,
 } from '../services/payment.service.js';
-import { notifyBookingConfirmed } from '../services/email.service.js';
 
 export async function handleStripeWebhook(req: Request, res: Response) {
   const signature = req.headers['stripe-signature'];
@@ -14,13 +15,13 @@ export async function handleStripeWebhook(req: Request, res: Response) {
     return;
   }
 
-  let event;
+  let event: Stripe.Event;
 
   try {
     event = stripe.webhooks.constructEvent(
       req.body,
       signature,
-      process.env.STRIPE_WEBHOOK_SECRET!,
+      process.env.STRIPE_WEBHOOK_SECRET as string,
     );
   } catch (err) {
     res.status(400).send(`Webhook Error: ${(err as Error).message}`);

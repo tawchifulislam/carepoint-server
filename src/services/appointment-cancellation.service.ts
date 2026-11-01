@@ -19,7 +19,7 @@ export async function cancelBookedAppointment(
     },
   });
 
-  if (!appointment || appointment.status !== 'BOOKED') {
+  if (appointment?.status !== 'BOOKED') {
     return { cancelled: false, refunded: false };
   }
 

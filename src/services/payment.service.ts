@@ -67,7 +67,7 @@ export async function getResumeCheckoutUrl(
 ): Promise<string> {
   const payment = await prisma.payment.findUnique({ where: { appointmentId } });
 
-  if (!payment || !payment.stripePaymentIntentId.startsWith('cs_')) {
+  if (!payment?.stripePaymentIntentId.startsWith('cs_')) {
     throw new PaymentSessionInactiveError(
       'No active payment session for this appointment',
     );
@@ -136,7 +136,7 @@ export async function reconcilePayment(
 ): Promise<ReconcileOutcome> {
   const payment = await prisma.payment.findUnique({ where: { appointmentId } });
 
-  if (!payment || !payment.stripePaymentIntentId.startsWith('cs_')) {
+  if (!payment?.stripePaymentIntentId.startsWith('cs_')) {
     return 'unchanged';
   }
 
